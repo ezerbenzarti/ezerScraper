@@ -1,0 +1,9 @@
+selenium
+beautifulsoup4
+pytesseract
+Pillow
+transformers
+torch
+spacy
+langdetect
+opencv-python
