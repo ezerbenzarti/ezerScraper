@@ -1,0 +1,14 @@
+selenium>=4.15.2
+beautifulsoup4>=4.12.2
+pytesseract>=0.3.10
+Pillow>=10.1.0
+torch>=2.1.2+cu121
+transformers>=4.36.2
+spacy>=3.7.2
+langdetect>=1.0.9
+opencv-python>=4.8.1.78
+numpy>=1.26.2
+requests>=2.31.0
+webdriver-manager>=4.0.1
+flask>=3.0.0
+geopy>=2.4.1

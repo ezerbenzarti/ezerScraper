@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scraper Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Web Scraper</h1>
+            <p>Extract information from websites using natural language prompts</p>
+        </header>
+
+        <main>
+            <form id="scraperForm" class="scraper-form">
+                <div class="form-group">
+                    <label for="url">Website URL</label>
+                    <input type="url" id="url" name="url" required placeholder="https://example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="prompt">Extraction Prompt</label>
+                    <textarea id="prompt" name="prompt" required placeholder="Extract all names, phone numbers, addresses, and emails"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="outputFile">Output File Name</label>
+                    <input type="text" id="outputFile" name="output" value="output.json">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="crawlDetail" name="crawl_detail" checked>
+                    <label for="crawlDetail">Crawl Detail Pages</label>
+                </div>
+
+                <button type="submit" class="submit-btn">Start Scraping</button>
+            </form>
+
+            <div id="results" class="results-container" style="display: none;">
+                <h2>Scraping Results</h2>
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                </div>
+                <div id="resultContent" class="result-content"></div>
+                <div class="download-section">
+                    <a id="downloadLink" href="#" class="download-btn" style="display: none;">Download Results</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
