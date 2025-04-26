@@ -40,3 +40,5 @@ screenshot.png
 # System Files
 .DS_Store
 Thumbs.db
+
+/output/*
