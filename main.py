@@ -11,6 +11,7 @@ from scraper import qa_model, crawler
 from scraper.data_clean import categorize_data, save_categorized_data
 from scraper.utils import save_results
 from scraper.geocoder import geocode_locations_data
+from scraper.cv_scraper import cv_crawl_site
 import sys
 import os
 
@@ -101,25 +102,36 @@ def send_webhook(workflow_id, status, data=None, error=None):
         logger.error(f"Error type: {type(e)}")
         logger.error(f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
 
-def process_scraping(start_url, prompt, qa_pipe, crawl_detail, workflow_id):
+def process_scraping(start_url, prompt, qa_pipe, crawl_detail, workflow_id, scraping_method='legacy'):
     """Process scraping in a separate thread"""
     logger.info(f"Starting scraping process for workflow {workflow_id}", {
         "url": start_url,
         "prompt": prompt,
-        "crawl_detail": crawl_detail
+        "crawl_detail": crawl_detail,
+        "method": scraping_method
     })
     
     try:
-        # Start crawling
-        logger.info(f"Starting crawl for workflow {workflow_id}")
-        result = crawler.crawl_site(
-            start_url=start_url,
-            prompt=prompt,
-            depth=1,  # Fixed depth of 1
-            max_pages=None,  # No limit on pages
-            qa_pipe=qa_pipe,
-            crawl_detail=crawl_detail
-        )
+        # Choose scraping method
+        if scraping_method == 'computer_vision':
+            logger.info(f"Using computer vision scraping for workflow {workflow_id}")
+            result = cv_crawl_site(
+                start_url=start_url,
+                prompt=prompt,
+                qa_pipe=qa_pipe,
+                crawl_detail=crawl_detail
+            )
+        else:
+            # Legacy scraping method
+            logger.info(f"Using legacy scraping for workflow {workflow_id}")
+            result = crawler.crawl_site(
+                start_url=start_url,
+                prompt=prompt,
+                depth=1,
+                max_pages=None,
+                qa_pipe=qa_pipe,
+                crawl_detail=crawl_detail
+            )
         
         logger.info(f"Crawl completed for workflow {workflow_id}", {
             "result_count": len(result) if isinstance(result, list) else 1
@@ -180,11 +192,13 @@ def data_view():
 def scrape():
     data = request.json
     workflow_id = data.get('workflow_id')
+    scraping_method = data.get('scraping_method', 'legacy')  # Default to legacy method
     
     logger.info(f"Received scrape request for workflow {workflow_id}", {
         "url": data.get('url'),
         "has_prompt": bool(data.get('prompt')),
-        "crawl_detail": data.get('crawl_detail')
+        "crawl_detail": data.get('crawl_detail'),
+        "method": scraping_method
     })
     
     try:
@@ -199,19 +213,16 @@ def scrape():
                 data['url'],
                 data['prompt'],
                 qa_pipe,
-                data['crawl_detail'],
-                workflow_id
+                data.get('crawl_detail', False),
+                workflow_id,
+                scraping_method
             )
         )
-        thread.daemon = True
         thread.start()
         
-        logger.info(f"Started scraping thread for workflow {workflow_id}")
-        
-        # Immediately return success response
         return jsonify({
-            "status": "queued",
-            "message": "Scraping process has been queued",
+            "status": "started",
+            "message": f"Scraping started with {scraping_method} method",
             "workflow_id": workflow_id
         })
         

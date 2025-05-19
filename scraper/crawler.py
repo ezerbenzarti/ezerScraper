@@ -259,62 +259,119 @@ def is_valid_tunisian_number(number):
 
 def extract_email(text):
     """
-    Enhanced email extraction that handles various formats and common email patterns.
+    Enhanced email extraction with improved pattern matching and validation.
     """
-    # Common email labels in French and English
+    if not text:
+        return ""
+
+    # Common email labels in French, English and Arabic
     email_labels = [
         'email', 'e-mail', 'mail', 'courriel', 'contact',
         'adresse email', 'adresse e-mail', 'adresse mail',
-        'adresse courriel', 'adresse de contact'
+        'adresse courriel', 'adresse de contact',
+        'البريد الإلكتروني', 'ايميل', 'بريد'
     ]
     
-    # First try to find emails near labels
+    # First try to find emails near labels with more flexible pattern
     lines = text.lower().split('\n')
-    for line in lines:
+    for i, line in enumerate(lines):
         line = line.strip()
         if any(label in line for label in email_labels):
-            # Look for email pattern in this line
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            match = re.search(email_pattern, line)
+            # Look in current and next line
+            search_text = line
+            if i < len(lines) - 1:
+                search_text += ' ' + lines[i + 1]
+            
+            # More comprehensive email pattern
+            email_pattern = r'[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}'
+            match = re.search(email_pattern, search_text)
             if match and not is_placeholder_email(match.group(0)):
-                return match.group(0)
+                return clean_and_validate_email(match.group(0))
     
     # If no labeled email found, try to find any email in the text
-    # More flexible pattern that handles various formats
+    # More comprehensive patterns for different email formats
     patterns = [
-        r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',  # Standard email
-        r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\.[a-zA-Z]{2,}',  # Multi-level domains
-        r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b',  # With word boundary
-        r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\b'  # Optional second-level domain
+        # Standard email with optional subdomain levels
+        r'[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}',
+        
+        # Email with dots and dashes in domain
+        r'[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,63}',
+        
+        # Email with international characters (simplified)
+        r'[a-zA-Z0-9._%+-]+[@＠][a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}',
+        
+        # Email with common typos fixed
+        r'[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}[@＠at][a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,63}'
     ]
     
+    # Try each pattern
     for pattern in patterns:
         matches = re.finditer(pattern, text)
         for match in matches:
             email = match.group(0)
             if not is_placeholder_email(email):
-                return email
+                cleaned = clean_and_validate_email(email)
+                if cleaned:
+                    return cleaned
     
-    # If still no email found, try to find sequences that look like emails
+    # Try to find potential emails with common separators
     words = text.split()
-    for word in words:
-        if '@' in word and '.' in word:
-            # Clean up the word to only keep email-relevant characters
-            cleaned = ''.join(c for c in word if c.isalnum() or c in '@._-')
-            if '@' in cleaned and '.' in cleaned:
-                parts = cleaned.split('@')
-                if len(parts) == 2:
-                    local, domain = parts
-                    if local and domain and '.' in domain:
-                        email = f"{local}@{domain}"
-                        if not is_placeholder_email(email):
-                            return email
+    for i, word in enumerate(words):
+        if '@' in word or '＠' in word or ' at ' in word.lower():
+            # Try to reconstruct email from surrounding words
+            start_idx = max(0, i - 1)
+            end_idx = min(len(words), i + 2)
+            potential_email = ' '.join(words[start_idx:end_idx])
+            potential_email = potential_email.replace(' at ', '@').replace('＠', '@')
+            
+            # Clean up and validate
+            cleaned = clean_and_validate_email(potential_email)
+            if cleaned:
+                return cleaned
     
     return ""
 
+def clean_and_validate_email(email):
+    """
+    Clean and validate an email address.
+    Returns the cleaned email if valid, empty string otherwise.
+    """
+    try:
+        # Remove unwanted characters and spaces
+        email = email.strip().lower()
+        email = re.sub(r'\s+', '', email)
+        
+        # Replace common typos
+        email = email.replace('＠', '@')
+        email = email.replace(' at ', '@')
+        email = email.replace('[at]', '@')
+        email = email.replace('(at)', '@')
+        
+        # Basic validation
+        if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,63}$', email):
+            return ""
+            
+        # Check for valid TLD
+        tld = email.split('.')[-1]
+        if len(tld) < 2 or len(tld) > 63:
+            return ""
+            
+        # Check for consecutive special characters
+        if re.search(r'[._%+-]{2,}', email):
+            return ""
+            
+        # Check for valid local part length
+        local_part = email.split('@')[0]
+        if len(local_part) > 64:
+            return ""
+            
+        return email
+    except:
+        return ""
+
 def is_placeholder_email(email):
     """
-    Check if the email is a placeholder or example.
+    Enhanced check for placeholder or example emails.
     """
     if not email:
         return True
@@ -330,11 +387,43 @@ def is_placeholder_email(email):
         "user@", "username@", "name@",
         "someone@", "someone@example.com",
         "ton-email@", "votre-mail@", "votre-email@",
-        "votre.email@", "votre_mail@", "votre_email@"
+        "votre.email@", "votre_mail@", "votre_email@",
+        "no-reply@", "noreply@", "no.reply@",
+        "donotreply@", "do-not-reply@", "do.not.reply@",
+        "postmaster@", "webmaster@", "hostmaster@",
+        "emailaddress@", "email.address@",
+        "myemail@", "my.email@", "my-email@",
+        "votreadresse@", "votre.adresse@",
+        "adresse.mail@", "adressemail@",
+        # Arabic placeholders
+        "بريد@", "بريدك@", "عنوان@", "عنوانك@"
+    ]
+    
+    # Check for common placeholder domains
+    placeholder_domains = [
+        "example.com", "exemple.com", "sample.com", "test.com",
+        "domain.com", "domaine.com", "site.com", "website.com",
+        "email.com", "mail.com", "yoursite.com", "votresite.com"
     ]
     
     # Check if email contains any placeholder pattern
-    return any(p in email for p in placeholders)
+    if any(p in email for p in placeholders):
+        return True
+        
+    # Check domain
+    domain = email.split('@')[-1]
+    if any(d in domain for d in placeholder_domains):
+        return True
+        
+    # Check for temporary/disposable email services
+    temp_email_services = [
+        "temp", "disposable", "throwaway", "tempmail",
+        "10minutemail", "mailinator", "guerrillamail", "yopmail"
+    ]
+    if any(service in domain for service in temp_email_services):
+        return True
+    
+    return False
 
 def extract_website(text):
     """Extract website URL from text."""
